@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import '@fontsource/jost';
+import { tracksData } from '../data/tracks';
 
 const BASE_URL = 'https://pub-f635042d84104c89b8ed1dd8253ad874.r2.dev/';
 
@@ -24,256 +25,6 @@ const allTags = [
   'grand',
 ];
 
-const tracksData = [
-  {
-    id: 1,
-    title: 'Towerful',
-    file: 'towerful',
-    category: 'drama',
-    tags: ['warm', 'organic'],
-    full: '#',
-  },
-  {
-    id: 2,
-    title: 'Liquor Suite',
-    file: 'liquor_suite',
-    category: 'atmosphere',
-    tags: ['melancholic', 'organic'],
-    full: '#',
-  },
-  {
-    id: 3,
-    title: 'Supernova Waltz',
-    file: 'supernowa_waltz',
-    category: 'drama',
-    tags: ['grand', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 4,
-    title: 'Long Way Up',
-    file: 'long_way_up',
-    category: 'energy',
-    tags: ['determined', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 5,
-    title: 'Below Zero',
-    file: 'below_zero',
-    category: 'atmosphere',
-    tags: ['melancholic', 'chiptune'],
-    full: '#',
-  },
-  {
-    id: 6,
-    title: 'Clock Game',
-    file: 'clock_game',
-    category: 'energy',
-    tags: ['tense', 'chiptune'],
-    full: '#',
-  },
-  {
-    id: 7,
-    title: 'Make Haste',
-    file: 'make_haste',
-    category: 'energy',
-    tags: ['playful', 'chiptune'],
-    full: '#',
-  },
-  {
-    id: 8,
-    title: 'Dusk',
-    file: 'dusk',
-    category: 'atmosphere',
-    tags: ['warm', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 9,
-    title: 'Noon',
-    file: 'noon',
-    category: 'energy',
-    tags: ['playful', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 10,
-    title: 'Afternoon',
-    file: 'afternoon',
-    category: 'energy',
-    tags: ['playful', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 11,
-    title: 'Dawn',
-    file: 'dawn',
-    category: 'atmosphere',
-    tags: ['warm', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 12,
-    title: 'Ups and Downs',
-    file: 'ups_and_downs',
-    category: 'energy',
-    tags: ['playful', 'chiptune'],
-    full: '#',
-  },
-  {
-    id: 13,
-    title: 'Bare Walls',
-    file: 'bare_walls',
-    category: 'atmosphere',
-    tags: ['mysterious', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 14,
-    title: 'Breeze',
-    file: 'breeze',
-    category: 'atmosphere',
-    tags: ['warm', 'organic'],
-    full: '#',
-  },
-  {
-    id: 15,
-    title: 'Pastel Pink And Orange',
-    file: 'pastel_pink_and_orange',
-    category: 'atmosphere',
-    tags: ['warm', 'organic'],
-    full: '#',
-  },
-  {
-    id: 16,
-    title: 'And Then Everything Stopped',
-    file: 'and_then_everything_stopped',
-    category: 'drama',
-    tags: ['mysterious', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 17,
-    title: 'Empty Streets',
-    file: 'empty_streets',
-    category: 'atmosphere',
-    tags: ['eerie', 'melancholic', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 18,
-    title: 'Cemetery',
-    file: 'cemetery',
-    category: 'atmosphere',
-    tags: ['eerie', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 19,
-    title: 'Stained Ivory',
-    file: 'stained_ivory',
-    category: 'atmosphere',
-    tags: ['eerie', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 20,
-    title: 'Chapel',
-    file: 'chapel',
-    category: 'atmosphere',
-    tags: ['eerie', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 21,
-    title: 'Pillow',
-    file: 'pillow',
-    category: 'atmosphere',
-    tags: ['eerie', 'melancholic', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 22,
-    title: 'Wanderlust',
-    file: 'wanderlust',
-    category: 'drama',
-    tags: ['melancholic', 'organic'],
-    full: '#',
-  },
-  {
-    id: 23,
-    title: 'Intensive Chill',
-    file: 'intensive_chill',
-    category: 'energy',
-    tags: ['playful', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 24,
-    title: 'Chiaroscuro',
-    file: 'chiaroscuro',
-    category: 'atmosphere',
-    tags: ['eerie', 'organic'],
-    full: '#',
-  },
-  {
-    id: 25,
-    title: 'Antarktis-hendelsen',
-    file: 'antarktis-hendelsen',
-    category: 'drama',
-    tags: ['tense', 'mysterious', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 26,
-    title: 'Soda Blanket',
-    file: 'soda_blanket',
-    category: 'drama',
-    tags: ['determined', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 27,
-    title: 'Mörkheimr',
-    file: 'morkheimr',
-    category: 'atmosphere',
-    tags: ['melancholic', 'mysterious', 'organic'],
-    full: '#',
-  },
-  {
-    id: 28,
-    title: 'Weightless',
-    file: 'weightless',
-    category: 'atmosphere',
-    tags: ['melancholic', 'synthetic'],
-    full: '#',
-  },
-  {
-    id: 29,
-    title: 'From the Archives of Soulcatchers',
-    file: 'from_the_archives_of_soulcatchers',
-    category: 'drama',
-    tags: ['grand', 'organic'],
-    full: '#',
-  },
-  {
-    id: 30,
-    title: 'To the Stars',
-    file: 'to_the_stars',
-    category: 'drama',
-    tags: ['determined', 'chiptune'],
-    full: '#',
-  },
-  {
-    id: 31,
-    title: '一',
-    file: '一',
-    category: 'energy',
-    tags: ['determined', 'chiptune'],
-    full: '#',
-  },
-].sort((a, b) => b.id - a.id);
 
 export default function MusicSite() {
   const handleTap = track => {
@@ -545,8 +296,8 @@ export default function MusicSite() {
       style={{ background: BG }}
     >
       {/* HEADER */}
-      <div className='px-4 md:px-32 pt-6 md:pt-32'>
-        <div className='mb-8 md:mb-10 relative flex items-end justify-between min-h-[300px] md:min-h-[180px]'>
+      <div className='px-4 md:px-32 pt-6 md:pt-32 overflow-visible'>
+        <div className='mb-8 md:mb-10 relative flex items-end justify-between min-h-[300px] md:min-h-[120px] overflow-visible'>
           <img
             src={`${BASE_URL}header_visual.png`}
             alt=''
@@ -579,20 +330,6 @@ export default function MusicSite() {
               collaborations.
             </div>
           </div>
-
-          <img
-            src={`${BASE_URL}header_visual.png`}
-            alt=''
-            className='hidden md:block'
-            style={{
-              position: 'absolute',
-              right: '-2%',
-              bottom: '-10%',
-              width: '420px',
-              objectFit: 'contain',
-              pointerEvents: 'none',
-            }}
-          />
         </div>
       </div>
 
@@ -715,7 +452,8 @@ export default function MusicSite() {
             <div
               className='mt-6'
               style={{
-                border: `1px solid ${ACCENT}`,
+                border: `1px solid ${'white'}`,
+                
                 display: 'flex',
                 minHeight: '132px',
                 overflow: 'hidden',
@@ -726,7 +464,7 @@ export default function MusicSite() {
                 style={{
                   width: '132px',
                   minWidth: '132px',
-                  borderRight: `1px solid ${ACCENT}`,
+                  borderRight: `1px solid ${'white'}`,
                   background: '#000',
                 }}
               >
@@ -762,7 +500,7 @@ export default function MusicSite() {
                     paddingRight: '12px',
                   }}
                 >
-                  Wait! Set the volume first. Playback starts on hover, genius.
+                  Wait! Set the volume first. Playback starts on hover!
                 </div>
 
                 {/* SLIDER */}
