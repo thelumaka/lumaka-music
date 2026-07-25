@@ -1,171 +1,233 @@
 'use client';
 
-import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import '@fontsource/jost';
-import { tracksData } from '../data/tracks';
 
-const BASE_URL = 'https://pub-f635042d84104c89b8ed1dd8253ad874.r2.dev/';
+const BASE_URL =
+  'https://pub-f635042d84104c89b8ed1dd8253ad874.r2.dev/';
 
 const ACCENT = '#71BCFF';
 const BG = '#272D37';
 
-const categories = ['all', 'atmosphere', 'energy', 'drama'];
-
-const allTags = [
-  'synthetic',
-  'organic',
-  'chiptune',
-  'playful',
-  'tense',
-  'melancholic',
-  'mysterious',
-  'warm',
-  'determined',
-  'eerie',
-  'grand',
-];
-
+import {
+  categories,
+  tracksData,
+} from './tracks';
 
 export default function MusicSite() {
-  const handleTap = track => {
-    if (!isTouch) return;
-
-    const a = audioRef.current;
-
-    if (!a) return;
-
-    if (currentId === track.id) {
-      if (!a.paused) {
-        a.pause();
-      } else {
-        a.play();
-      }
-    } else {
-      playPreview(track);
-    }
-
-    setHoveredId(track.id);
-  };
   const audioRef = useRef(null);
   const hoverTimeout = useRef(null);
   const progressInterval = useRef(null);
   const fadeRef = useRef(null);
 
-  const tagsContainerRef = useRef(null);
-  const tagRefs = useRef({});
+  const controlsRef = useRef(null);
+  const pageTopRef = useRef(null);
+
+  const collectionRefs = useRef({});
+  const collectionButtonRefs = useRef({});
 
   const [progress, setProgress] = useState({});
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [activeTags, setActiveTags] = useState([]);
+  const [activeCollection, setActiveCollection] = useState(
+    categories[1] || null
+  );
   const [currentId, setCurrentId] = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
   const [isTouch, setIsTouch] = useState(false);
   const [volume, setVolume] = useState(0.22);
-
-  const [showAllTags, setShowAllTags] = useState(false);
-  const [collapsedTags, setCollapsedTags] = useState([]);
-  const [needsCollapse, setNeedsCollapse] = useState(false);
   const [loadingId, setLoadingId] = useState(null);
 
+  /*
+   * Collections from Google Sheets.
+   * "all" is not an actual collection.
+   */
+  const collectionNames = categories.filter(
+    category => category !== 'all'
+  );
+
+  /*
+   * Detect touch devices.
+   */
   useEffect(() => {
     const media = window.matchMedia('(hover: none)');
     setIsTouch(media.matches);
   }, []);
 
-  const visibleTags = allTags
-    .map(tag => ({ tag, count: getTagCount(tag) }))
-    .filter(({ count }) => count > 0);
+  /*
+   * Pause audio when the page is hidden / left.
+   */
+  useEffect(() => {
+    const pauseAudio = () => {
+      const a = audioRef.current;
 
-  useLayoutEffect(() => {
-    const calculateVisibleTags = () => {
-      if (!tagsContainerRef.current) return;
+      if (!a) return;
 
-      const rows = [];
-
-      visibleTags.forEach(({ tag }) => {
-        const el = tagRefs.current[tag];
-        if (!el) return;
-
-        const top = el.offsetTop;
-
-        if (!rows.includes(top)) {
-          rows.push(top);
-        }
-      });
-
-      if (rows.length <= 2) {
-        setNeedsCollapse(false);
-        setCollapsedTags(visibleTags);
-        return;
-      }
-
-      setNeedsCollapse(true);
-
-      const secondRowTop = rows[1];
-
-      const fitting = [];
-
-      visibleTags.forEach(item => {
-        const el = tagRefs.current[item.tag];
-        if (!el) return;
-
-        if (el.offsetTop <= secondRowTop) {
-          fitting.push(item);
-        }
-      });
-
-      fitting.pop();
-
-      setCollapsedTags(fitting);
+      a.pause();
     };
 
-    setTimeout(calculateVisibleTags, 0);
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        pauseAudio();
+      }
+    };
 
-    window.addEventListener('resize', calculateVisibleTags);
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange
+    );
+
+    window.addEventListener('pagehide', pauseAudio);
 
     return () => {
-      window.removeEventListener('resize', calculateVisibleTags);
-    };
-  }, [activeCategory, activeTags]);
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange
+      );
 
-  const toggleTag = tag => {
-    setActiveTags(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-    );
+      window.removeEventListener('pagehide', pauseAudio);
+    };
+  }, []);
+
+  /*
+   * Detect which collection is currently being viewed.
+   */
+  useEffect(() => {
+    const handleScroll = () => {
+      const controls = controlsRef.current;
+
+      if (!controls) return;
+
+      const controlHeight =
+        controls.getBoundingClientRect().height;
+
+      let closestSection = null;
+      let closestDistance = Infinity;
+
+      /*
+       * Regular collections.
+       */
+      collectionNames.forEach(name => {
+        const section = collectionRefs.current[name];
+
+        if (!section) return;
+
+        const rect = section.getBoundingClientRect();
+
+        const distance = Math.abs(
+          rect.top - controlHeight - 20
+        );
+
+        if (
+          rect.top <= controlHeight + 180 &&
+          distance < closestDistance
+        ) {
+          closestDistance = distance;
+          closestSection = name;
+        }
+      });
+
+      /*
+       * All tracks section.
+       */
+      const allTracksSection =
+        collectionRefs.current['All tracks'];
+
+      if (allTracksSection) {
+        const rect =
+          allTracksSection.getBoundingClientRect();
+
+        const distance = Math.abs(
+          rect.top - controlHeight - 20
+        );
+
+        if (
+          rect.top <= controlHeight + 180 &&
+          distance < closestDistance
+        ) {
+          closestDistance = distance;
+          closestSection = 'All tracks';
+        }
+      }
+
+      if (closestSection) {
+        setActiveCollection(closestSection);
+      }
+    };
+
+    let ticking = false;
+
+    const onScroll = () => {
+      if (ticking) return;
+
+      ticking = true;
+
+      requestAnimationFrame(() => {
+        handleScroll();
+        ticking = false;
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, {
+      passive: true,
+    });
+
+    handleScroll();
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [collectionNames]);
+
+  /*
+   * Keep the active selector item visible horizontally.
+   * Particularly useful on mobile.
+   */
+  useEffect(() => {
+    if (!activeCollection) return;
+
+    const button =
+      collectionButtonRefs.current[activeCollection];
+
+    if (!button) return;
+
+    button.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'center',
+    });
+  }, [activeCollection]);
+
+  /*
+   * Scroll to a collection.
+   */
+  const scrollToCollection = collection => {
+    const section =
+      collectionRefs.current[collection];
+
+    if (!section) return;
+
+    const controls = controlsRef.current;
+
+    const controlHeight = controls
+      ? controls.getBoundingClientRect().height
+      : 0;
+
+    const y =
+      window.scrollY +
+      section.getBoundingClientRect().top -
+      controlHeight -
+      16;
+
+    window.scrollTo({
+      top: Math.max(0, y),
+      behavior: 'smooth',
+    });
+
+    setActiveCollection(collection);
   };
 
-  const clearAllTags = () => setActiveTags([]);
-
-  const filteredTracks = tracksData.filter(track => {
-    const categoryMatch =
-      activeCategory === 'all' || track.category === activeCategory;
-
-    const tagMatch =
-      activeTags.length === 0 ||
-      activeTags.every(tag => track.tags.includes(tag));
-
-    return categoryMatch && tagMatch;
-  });
-
-  function getTagCount(tag) {
-    return tracksData.filter(track => {
-      const categoryMatch =
-        activeCategory === 'all' || track.category === activeCategory;
-
-      if (!categoryMatch) return false;
-      if (!track.tags.includes(tag)) return false;
-
-      const otherActiveTags = activeTags.filter(t => t !== tag);
-
-      const otherTagsMatch =
-        otherActiveTags.length === 0 ||
-        otherActiveTags.every(t => track.tags.includes(t));
-
-      return otherTagsMatch;
-    }).length;
-  }
-
-  const buildPreview = file => `${BASE_URL}${file}_clip.mp3`;
+  /*
+   * AUDIO
+   */
 
   const clearFade = () => {
     if (fadeRef.current) {
@@ -177,7 +239,11 @@ export default function MusicSite() {
   const fadeTo = (target, cb) => {
     clearFade();
 
-    let vol = audioRef.current.volume;
+    const a = audioRef.current;
+
+    if (!a) return;
+
+    let vol = a.volume;
 
     fadeRef.current = setInterval(() => {
       const diff = target - vol;
@@ -191,7 +257,7 @@ export default function MusicSite() {
         if (cb) cb();
       }
 
-      audioRef.current.volume = vol;
+      a.volume = vol;
     }, 20);
   };
 
@@ -201,11 +267,13 @@ export default function MusicSite() {
     progressInterval.current = setInterval(() => {
       const a = audioRef.current;
 
-      if (!a.duration) return;
+      if (!a || !a.duration) return;
 
       const p = a.currentTime / a.duration;
 
-      setProgress({ [id]: p });
+      setProgress({
+        [id]: p,
+      });
 
       if (p >= 0.98) {
         fadeTo(0, () => {
@@ -215,6 +283,9 @@ export default function MusicSite() {
       }
     }, 50);
   };
+
+  const buildPreview = file =>
+    `${BASE_URL}${file}_clip.mp3`;
 
   const playPreview = async track => {
     const a = audioRef.current;
@@ -244,6 +315,8 @@ export default function MusicSite() {
       fadeTo(volume);
 
       startProgress(track.id);
+    } catch (error) {
+      console.error('Audio playback failed:', error);
     } finally {
       if (isTouch) {
         setLoadingId(null);
@@ -264,8 +337,29 @@ export default function MusicSite() {
     clearInterval(progressInterval.current);
 
     setProgress({});
-
     setCurrentId(null);
+  };
+
+  const handleTap = track => {
+    if (!isTouch) return;
+
+    const a = audioRef.current;
+
+    if (!a) return;
+
+    if (currentId === track.id) {
+      if (!a.paused) {
+        a.pause();
+      } else {
+        a.play().catch(error => {
+          console.error('Audio playback failed:', error);
+        });
+      }
+    } else {
+      playPreview(track);
+    }
+
+    setHoveredId(track.id);
   };
 
   const handleEnter = track => {
@@ -275,7 +369,9 @@ export default function MusicSite() {
 
     clearTimeout(hoverTimeout.current);
 
-    hoverTimeout.current = setTimeout(() => playPreview(track), 350);
+    hoverTimeout.current = setTimeout(() => {
+      playPreview(track);
+    }, 350);
   };
 
   const handleLeave = () => {
@@ -288,12 +384,171 @@ export default function MusicSite() {
     stopPreview();
   };
 
-  const shownTags = needsCollapse && !showAllTags ? collapsedTags : visibleTags;
+  /*
+   * TRACK CARD
+   */
+  const renderTrack = track => {
+    const fill = (progress[track.id] || 0) * 100;
+    const isLoading = loadingId === track.id;
+
+    const isHovered =
+      hoveredId === track.id ||
+      (isTouch && currentId === track.id);
+
+    return (
+      <div
+        key={track.id}
+        onMouseEnter={() => handleEnter(track)}
+        onMouseLeave={handleLeave}
+        onClick={() => handleTap(track)}
+        className='relative overflow-hidden cursor-pointer'
+        style={{
+          border: `1px solid ${
+            isHovered ? ACCENT : 'white'
+          }`,
+          minHeight: '104px',
+        }}
+      >
+        {/* PROGRESS */}
+        <div
+          className='absolute top-0 left-0 h-full pointer-events-none'
+          style={{
+            width: `${fill}%`,
+            background: ACCENT,
+            opacity: 0.12,
+          }}
+        />
+
+        {/* FULL TRACK / DEMO */}
+        <a
+          href={track.full || '#'}
+          target='_blank'
+          rel='noopener noreferrer'
+          onClick={e => {
+            if (!track.full) {
+              e.preventDefault();
+            }
+          }}
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: '34px',
+            background: ACCENT,
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            writingMode: 'vertical-rl',
+            transform: isHovered
+              ? 'translateX(0)'
+              : 'translateX(100%)',
+            transition:
+              'transform 0.25s cubic-bezier(0.22,1,0.36,1)',
+            letterSpacing: '0.14em',
+            fontSize: '0.68rem',
+            zIndex: 3,
+            pointerEvents: track.full ? 'auto' : 'none',
+            opacity: track.full ? 1 : 0.6,
+          }}
+        >
+          {track.full ? 'FULL TRACK' : 'DEMO'}
+        </a>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            padding: '16px',
+            paddingRight: '56px',
+            minHeight: '104px',
+          }}
+        >
+          {/* LOADING */}
+          {isLoading && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(39,45,55,0.65)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 5,
+                pointerEvents: 'none',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  letterSpacing: '0.2em',
+                  opacity: 0.8,
+                }}
+              >
+                LOADING...
+              </div>
+            </div>
+          )}
+
+          {/* IMAGE */}
+          <img
+            src={`${BASE_URL}${track.file}.png`}
+            alt=''
+            style={{
+              width: '72px',
+              height: '72px',
+              minWidth: '72px',
+              background: '#000',
+              position: 'relative',
+              zIndex: 1,
+            }}
+          />
+
+          {/* TEXT */}
+          <div
+            className='flex-1 min-w-0'
+            style={{
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
+            <div
+              className='font-bold leading-tight'
+              style={{
+                fontSize: '1.1rem',
+                letterSpacing: '0.08em',
+                color: isHovered ? ACCENT : 'white',
+              }}
+            >
+              {track.title}
+            </div>
+
+            <div
+              className='mt-2 text-sm font-light'
+              style={{
+                color: isHovered ? ACCENT : 'white',
+                opacity: isHovered ? 0.8 : 0.5,
+                lineHeight: 1.3,
+                fontStyle: 'italic',
+              }}
+            >
+              {track.line}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div
+      ref={pageTopRef}
       className='min-h-screen text-white font-[default]'
-      style={{ background: BG }}
+      style={{
+        background: BG,
+      }}
     >
       {/* HEADER */}
       <div className='px-4 md:px-32 pt-6 md:pt-32 overflow-visible'>
@@ -314,17 +569,26 @@ export default function MusicSite() {
             }}
           />
 
-          <div style={{ maxWidth: '900px', zIndex: 2 }}>
+          <div
+            style={{
+              maxWidth: '900px',
+              zIndex: 2,
+            }}
+          >
             <div
               className='text-3xl md:text-5xl font-light tracking-wide'
-              style={{ letterSpacing: '0.08em' }}
+              style={{
+                letterSpacing: '0.08em',
+              }}
             >
               lumaka's music stash
             </div>
 
             <div
               className='mt-3 text-sm md:text-base font-light tracking-wide'
-              style={{ opacity: 0.5 }}
+              style={{
+                opacity: 0.5,
+              }}
             >
               I write atmospheric stuff. Available for commissions and
               collaborations.
@@ -333,8 +597,9 @@ export default function MusicSite() {
         </div>
       </div>
 
-      {/* CONTROLS */}
+      {/* COLLECTION NAVIGATION */}
       <div
+        ref={controlsRef}
         className='sticky top-0 z-50'
         style={{
           background: 'rgba(39,45,55,0.92)',
@@ -342,109 +607,71 @@ export default function MusicSite() {
         }}
       >
         <div className='px-4 md:px-32 pt-3 pb-4'>
-          {/* tabs */}
-          <div className='flex mb-3 border-b' style={{ borderColor: ACCENT }}>
-            {categories.map(cat => {
-              const active = activeCategory === cat;
+          {/* COLLECTION SELECTOR */}
+          <div
+            className='flex gap-1.5 overflow-x-auto flex-nowrap border-b'
+            style={{
+              borderColor: ACCENT,
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            {collectionNames.map(collection => {
+              const active =
+                activeCollection === collection;
 
               return (
                 <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className='text-sm'
+                  key={collection}
+                  ref={el => {
+                    collectionButtonRefs.current[collection] =
+                      el;
+                  }}
+                  onClick={() =>
+                    scrollToCollection(collection)
+                  }
+                  className='text-sm flex-shrink-0 whitespace-nowrap'
                   style={{
-                    background: active ? ACCENT : 'transparent',
+                    background: active
+                      ? ACCENT
+                      : 'transparent',
                     color: active ? 'black' : 'white',
                     padding: '7px 14px',
                     marginBottom: '-1px',
                     cursor: 'pointer',
                   }}
                 >
-                  {cat}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* hidden measure layer */}
-          <div
-            ref={tagsContainerRef}
-            className='absolute opacity-0 pointer-events-none flex gap-1.5 flex-wrap w-[calc(100%-2rem)] md:w-[calc(100%-16rem)]'
-          >
-            {visibleTags.map(({ tag, count }) => (
-              <div
-                key={tag}
-                ref={el => (tagRefs.current[tag] = el)}
-                style={{
-                  padding: '5px 8px',
-                  border: '1px solid white',
-                  fontSize: '12px',
-                }}
-              >
-                {tag} ({count})
-              </div>
-            ))}
-          </div>
-
-          {/* actual tags */}
-          <div className='flex gap-1.5 flex-wrap items-center'>
-            {shownTags.map(({ tag, count }) => {
-              const active = activeTags.includes(tag);
-
-              return (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className='text-xs border transition font-light tracking-wide flex items-center gap-1'
-                  style={{
-                    background: active ? ACCENT : 'transparent',
-                    color: active ? 'black' : 'white',
-                    borderColor: active ? ACCENT : 'white',
-                    cursor: 'pointer',
-                    padding: '5px 8px',
-                  }}
-                >
-                  {tag}
-
-                  <span
-                    style={{
-                      fontSize: '0.7rem',
-                      opacity: active ? 0.7 : 0.5,
-                    }}
-                  >
-                    ({count})
-                  </span>
+                  {collection}
                 </button>
               );
             })}
 
-            {needsCollapse && (
-              <button
-                onClick={() => setShowAllTags(!showAllTags)}
-                className='text-xs'
-                style={{
-                  color: ACCENT,
-                  padding: '5px 4px',
-                  flexShrink: 0,
-                }}
-              >
-                {showAllTags ? 'less' : 'show all'}
-              </button>
-            )}
-
-            {activeTags.length > 0 && (
-              <button
-                onClick={clearAllTags}
-                className='text-xs border'
-                style={{
-                  color: ACCENT,
-                  borderColor: ACCENT,
-                  padding: '5px 8px',
-                }}
-              >
-                clear
-              </button>
-            )}
+            {/* ALL TRACKS */}
+            <button
+              ref={el => {
+                collectionButtonRefs.current['All tracks'] = el;
+              }}
+              onClick={() =>
+                scrollToCollection('All tracks')
+              }
+              className='text-sm flex-shrink-0 whitespace-nowrap'
+              style={{
+                background:
+                  activeCollection === 'All tracks'
+                    ? ACCENT
+                    : 'transparent',
+                color:
+                  activeCollection === 'All tracks'
+                    ? 'black'
+                    : 'white',
+                padding: '7px 14px',
+                marginBottom: '-1px',
+                cursor: 'pointer',
+              }}
+            >
+              All tracks
+            </button>
           </div>
 
           {/* RPG DIALOGUE VOLUME BOX */}
@@ -452,8 +679,7 @@ export default function MusicSite() {
             <div
               className='mt-6'
               style={{
-                border: `1px solid ${'white'}`,
-                
+                border: '1px solid white',
                 display: 'flex',
                 minHeight: '132px',
                 overflow: 'hidden',
@@ -464,7 +690,7 @@ export default function MusicSite() {
                 style={{
                   width: '132px',
                   minWidth: '132px',
-                  borderRight: `1px solid ${'white'}`,
+                  borderRight: '1px solid white',
                   background: '#000',
                 }}
               >
@@ -491,7 +717,6 @@ export default function MusicSite() {
                   minWidth: 0,
                 }}
               >
-                {/* TEXT */}
                 <div
                   style={{
                     fontSize: '1.15rem',
@@ -525,18 +750,17 @@ export default function MusicSite() {
                       alignItems: 'center',
                     }}
                   >
-                    {/* LINE */}
                     <div
                       style={{
                         position: 'absolute',
                         left: 0,
                         right: 0,
                         height: '1px',
-                        background: 'rgba(255,255,255,0.25)',
+                        background:
+                          'rgba(255,255,255,0.25)',
                       }}
                     />
 
-                    {/* RANGE */}
                     <input
                       type='range'
                       min='0'
@@ -569,153 +793,70 @@ export default function MusicSite() {
         </div>
       </div>
 
-      {/* TRACKS */}
-      <div className='px-4 md:px-32 pt-5 pb-24'>
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-          {filteredTracks.map(track => {
-            const fill = (progress[track.id] || 0) * 100;
-            const isLoading = loadingId === track.id;
+      {/* COLLECTIONS */}
+      <div className='px-4 md:px-32 pt-8 pb-24'>
+        {collectionNames.map(collection => {
+          const collectionTracks = tracksData.filter(
+            track =>
+              track.collections?.includes(collection)
+          );
 
-            const isHovered =
-              hoveredId === track.id || (isTouch && currentId === track.id);
+          if (collectionTracks.length === 0) {
+            return null;
+          }
 
-            return (
-              <div
-                key={track.id}
-                onMouseEnter={() => handleEnter(track)}
-                onMouseLeave={handleLeave}
-                onClick={() => handleTap(track)}
-                className='relative overflow-hidden cursor-pointer'
+          return (
+            <section
+              key={collection}
+              ref={el => {
+                collectionRefs.current[collection] = el;
+              }}
+              style={{
+                scrollMarginTop: '160px',
+                marginBottom: '64px',
+              }}
+            >
+              {/* COLLECTION TITLE */}
+              <h2
+                className='text-2xl md:text-3xl font-light mb-4'
                 style={{
-                  border: `1px solid ${isHovered ? ACCENT : 'white'}`,
-                  minHeight: '104px',
+                  letterSpacing: '0.05em',
                 }}
               >
-                {/* progress */}
-                <div
-                  className='absolute top-0 left-0 h-full pointer-events-none'
-                  style={{
-                    width: `${fill}%`,
-                    background: ACCENT,
-                    opacity: 0.12,
-                  }}
-                />
+                {collection}
+              </h2>
 
-                {/* full track */}
-                <a
-                  href={track.full}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: '34px',
-                    background: ACCENT,
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    writingMode: 'vertical-rl',
-                    transform: isHovered ? 'translateX(0)' : 'translateX(100%)',
-                    transition: 'transform 0.25s cubic-bezier(0.22,1,0.36,1)',
-                    letterSpacing: '0.14em',
-                    fontSize: '0.68rem',
-                    zIndex: 3,
-                  }}
-                >
-                  FULL TRACK
-                </a>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    padding: '16px',
-                    paddingRight: '56px',
-                    minHeight: '104px',
-                  }}
-                >
-                  {isLoading && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'rgba(39,45,55,0.65)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 5,
-                        pointerEvents: 'none',
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: '0.75rem',
-                          letterSpacing: '0.2em',
-                          opacity: 0.8,
-                        }}
-                      >
-                        LOADING...
-                      </div>
-                    </div>
-                  )}
-                  <img
-                    src={`${BASE_URL}${track.file}.png`}
-                    alt=''
-                    style={{
-                      width: '72px',
-                      height: '72px',
-                      minWidth: '72px',
-                      background: '#000',
-                      position: 'relative',
-                      zIndex: 1,
-                    }}
-                  />
-
-                  <div
-                    className='flex-1 min-w-0'
-                    style={{
-                      position: 'relative',
-                      zIndex: 1,
-                    }}
-                  >
-                    <div
-                      className='font-bold leading-tight'
-                      style={{
-                        fontSize: '1.1rem',
-                        letterSpacing: '0.02em',
-                        color: isHovered ? ACCENT : 'white',
-                      }}
-                    >
-                      {track.title}
-                    </div>
-
-                    <div
-                      className='flex gap-x-3 gap-y-2 mt-2 flex-wrap'
-                      style={{ lineHeight: '1' }}
-                    >
-                      {track.tags.slice(0, 3).map(tag => (
-                        <span
-                          key={tag}
-                          className='text-xs leading-none'
-                          style={{
-                            color: isHovered ? ACCENT : 'white',
-                            opacity: isHovered ? 0.8 : 0.5,
-                          }}
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+              {/* TRACKS */}
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                {collectionTracks.map(renderTrack)}
               </div>
-            );
-          })}
-        </div>
+            </section>
+          );
+        })}
+
+        {/* ALL TRACKS */}
+        <section
+          ref={el => {
+            collectionRefs.current['All tracks'] = el;
+          }}
+          style={{
+            scrollMarginTop: '160px',
+            marginBottom: '64px',
+          }}
+        >
+          <h2
+            className='text-2xl md:text-3xl font-light mb-4'
+            style={{
+              letterSpacing: '0.05em',
+            }}
+          >
+            All tracks
+          </h2>
+
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+            {tracksData.map(renderTrack)}
+          </div>
+        </section>
 
         {/* FOOTER */}
         <div
@@ -727,7 +868,9 @@ export default function MusicSite() {
         >
           <div>thelumaka@gmail.com</div>
 
-          <div>© {new Date().getFullYear()} Lumaka</div>
+          <div>
+            © {new Date().getFullYear()} Lumaka
+          </div>
 
           <div className='flex gap-6'>
             <a
@@ -737,7 +880,10 @@ export default function MusicSite() {
               YouTube
             </a>
 
-            <a href='https://lumaka.bandcamp.com/' className='hover:underline'>
+            <a
+              href='https://lumaka.bandcamp.com/'
+              className='hover:underline'
+            >
               Bandcamp
             </a>
 
@@ -751,7 +897,10 @@ export default function MusicSite() {
         </div>
       </div>
 
-      <audio ref={audioRef} preload='auto' />
+      <audio
+        ref={audioRef}
+        preload='auto'
+      />
     </div>
   );
 }
