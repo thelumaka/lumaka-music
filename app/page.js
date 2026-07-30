@@ -30,11 +30,15 @@ export default function MusicSite() {
   const [activeCollection, setActiveCollection] = useState(
     categories[1] || null
   );
-  const [currentId, setCurrentId] = useState(null);
-  const [hoveredId, setHoveredId] = useState(null);
-  const [isTouch, setIsTouch] = useState(false);
-  const [volume, setVolume] = useState(0.22);
-  const [loadingId, setLoadingId] = useState(null);
+const [currentId, setCurrentId] = useState(null);
+const [hoveredId, setHoveredId] = useState(null);
+const [isTouch, setIsTouch] = useState(false);
+const [volume, setVolume] = useState(0.22);
+const [loadingId, setLoadingId] = useState(null);
+const [isPlaying, setIsPlaying] = useState(false);
+
+const [audioUnlocked, setAudioUnlocked] = useState(false);
+
 
   /*
    * Collections from Google Sheets.
@@ -51,6 +55,31 @@ export default function MusicSite() {
     const media = window.matchMedia('(hover: none)');
     setIsTouch(media.matches);
   }, []);
+
+
+  /*
+ * Keep track of whether audio is actually playing.
+ */
+useEffect(() => {
+  const a = audioRef.current;
+
+  if (!a) return;
+
+  const handlePlay = () => setIsPlaying(true);
+  const handlePause = () => setIsPlaying(false);
+  const handleEnded = () => setIsPlaying(false);
+
+  a.addEventListener('play', handlePlay);
+  a.addEventListener('pause', handlePause);
+  a.addEventListener('ended', handleEnded);
+
+  return () => {
+    a.removeEventListener('play', handlePlay);
+    a.removeEventListener('pause', handlePause);
+    a.removeEventListener('ended', handleEnded);
+  };
+}, []);
+
 
   /*
    * Pause audio when the page is hidden / left.
@@ -196,6 +225,7 @@ export default function MusicSite() {
     });
   }, [activeCollection]);
 
+
   /*
    * Scroll to a collection.
    */
@@ -308,7 +338,7 @@ export default function MusicSite() {
     a.volume = 0;
 
     try {
-      await a.play();
+    await a.play();
 
       setCurrentId(track.id);
 
@@ -316,8 +346,9 @@ export default function MusicSite() {
 
       startProgress(track.id);
     } catch (error) {
-      console.error('Audio playback failed:', error);
-    } finally {
+
+    console.error(error);
+} finally {
       if (isTouch) {
         setLoadingId(null);
       }
@@ -363,16 +394,18 @@ export default function MusicSite() {
   };
 
   const handleEnter = track => {
-    if (isTouch) return;
+  if (isTouch) return;
 
-    setHoveredId(track.id);
+  setHoveredId(track.id);
 
-    clearTimeout(hoverTimeout.current);
+  if (!audioUnlocked) return;
 
-    hoverTimeout.current = setTimeout(() => {
-      playPreview(track);
-    }, 350);
-  };
+clearTimeout(hoverTimeout.current);
+
+hoverTimeout.current = setTimeout(() => {
+  playPreview(track);
+}, 350);
+};
 
   const handleLeave = () => {
     if (isTouch) return;
@@ -390,6 +423,10 @@ export default function MusicSite() {
   const renderTrack = track => {
     const fill = (progress[track.id] || 0) * 100;
     const isLoading = loadingId === track.id;
+    const showUnlock =
+  !audioUnlocked &&
+  hoveredId === track.id &&
+  !isTouch;
 
     const isHovered =
       hoveredId === track.id ||
@@ -400,7 +437,22 @@ export default function MusicSite() {
         key={track.id}
         onMouseEnter={() => handleEnter(track)}
         onMouseLeave={handleLeave}
-        onClick={() => handleTap(track)}
+        onClick={() => {
+  if (!audioUnlocked) {
+    setAudioUnlocked(true);
+
+    // Desktop: first click unlocks audio and immediately plays
+    if (!isTouch) {
+      playPreview(track);
+    } else {
+      handleTap(track);
+    }
+
+    return;
+  }
+
+  handleTap(track);
+}}
         className='relative overflow-hidden cursor-pointer'
         style={{
           border: `1px solid ${
@@ -466,31 +518,40 @@ export default function MusicSite() {
             minHeight: '104px',
           }}
         >
-          {/* LOADING */}
-          {isLoading && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'rgba(39,45,55,0.65)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 5,
-                pointerEvents: 'none',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '0.75rem',
-                  letterSpacing: '0.2em',
-                  opacity: 0.8,
-                }}
-              >
-                LOADING...
-              </div>
-            </div>
-          )}
+          {/* CLICK TO ENABLE AUDIO */}
+{showUnlock ? (
+  <div
+    style={{
+      position: 'absolute',
+      inset: 0,
+      background: 'rgba(39,45,55,.92)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 6,
+      color: ACCENT,
+      fontWeight: 700,
+      letterSpacing: '.12em',
+      pointerEvents: 'none',
+    }}
+  >
+    CLICK TO ENABLE AUDIO
+  </div>
+) : isLoading ? (
+  <div
+    style={{
+      position: 'absolute',
+      inset: 0,
+      background: 'rgba(39,45,55,.65)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 5,
+    }}
+  >
+    LOADING...
+  </div>
+) : null}
 
           {/* IMAGE */}
           <img
@@ -550,9 +611,10 @@ export default function MusicSite() {
         background: BG,
       }}
     >
+      
       {/* HEADER */}
       <div className='px-4 md:px-32 pt-6 md:pt-32 overflow-visible'>
-        <div className='mb-8 md:mb-10 relative flex items-end justify-between min-h-[300px] md:min-h-[120px] overflow-visible'>
+        <div className='mb-8 md:mb-10 relative flex items-end justify-between min-h-[300px] md:min-h-[100px] overflow-visible'>
           <img
             src={`${BASE_URL}header_visual.png`}
             alt=''
@@ -569,31 +631,45 @@ export default function MusicSite() {
             }}
           />
 
-          <div
-            style={{
-              maxWidth: '900px',
-              zIndex: 2,
-            }}
-          >
-            <div
-              className='text-3xl md:text-5xl font-light tracking-wide'
-              style={{
-                letterSpacing: '0.08em',
-              }}
-            >
-              lumaka's music stash
-            </div>
+          <div style={{ maxWidth: '900px', zIndex: 2 }}>
+  <div
+    className="text-3xl md:text-5xl font-light tracking-wide"
+    style={{ letterSpacing: '0.08em' }}
+  >
+    lumaka's music stash
+  </div>
 
-            <div
-              className='mt-3 text-sm md:text-base font-light tracking-wide'
-              style={{
-                opacity: 0.5,
-              }}
-            >
-              I write atmospheric stuff. Available for commissions and
-              collaborations.
-            </div>
-          </div>
+  <div
+    className="mt-3 text-sm md:text-base font-light tracking-wide"
+  >
+    <span style={{ opacity: 0.5 }}>
+      I compose soundtracks. Open for two projects fall '26.
+    </span>
+
+    <a
+      href="#contacts"
+      onClick={e => {
+        e.preventDefault();
+        document
+          .getElementById('contacts')
+          ?.scrollIntoView({ behavior: 'smooth' });
+      }}
+      style={{
+        opacity: 0.8,
+        color: ACCENT,
+        fontSize: '0.9rem',
+        textDecoration: 'none',
+        marginLeft: '12px',
+        cursor: 'pointer',
+        fontWeight: 500,
+        fontStyle: 'italic',
+      }}
+    >
+      <br />
+      skip to contacts →
+    </a>
+  </div>
+</div>
         </div>
       </div>
 
@@ -614,6 +690,10 @@ export default function MusicSite() {
               borderColor: ACCENT,
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
+                  overflowX: 'auto',
+                  overflowY: 'hidden',
+                  whiteSpace: 'nowrap',
+                  touchAction: 'pan-x',
               WebkitOverflowScrolling: 'touch',
             }}
           >
@@ -695,7 +775,7 @@ export default function MusicSite() {
                 }}
               >
                 <img
-                  src={`${BASE_URL}lumaka_vibing.gif`}
+                  src={`${BASE_URL}${isPlaying ? 'lumaka_vibing.gif' : 'lumaka_idle.gif'}`}
                   alt=''
                   style={{
                     width: '100%',
@@ -723,9 +803,10 @@ export default function MusicSite() {
                     lineHeight: 1.35,
                     letterSpacing: '0.03em',
                     paddingRight: '12px',
+                    
                   }}
                 >
-                  Wait! Set the volume first. Playback starts on hover!
+                  Turn it up! I'll start the music on hover for you.
                 </div>
 
                 {/* SLIDER */}
@@ -736,6 +817,7 @@ export default function MusicSite() {
                       opacity: 0.45,
                       letterSpacing: '0.16em',
                       marginBottom: '10px',
+                      
                     }}
                   >
                     VOLUME
@@ -860,6 +942,7 @@ export default function MusicSite() {
 
         {/* FOOTER */}
         <div
+          id="contacts"
           className='mt-24 pt-6 border-t text-sm flex flex-col md:flex-row justify-between gap-4'
           style={{
             borderColor: 'white',
@@ -885,6 +968,13 @@ export default function MusicSite() {
               className='hover:underline'
             >
               Bandcamp
+            </a>
+
+            <a
+              href='https://www.instagram.com/the.lumaka/'
+              className='hover:underline'
+            >
+              Instagram
             </a>
 
             <a
