@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "lumaka's music stash",
-  description: "i write armospheric stuff",
+  description: "i write atmospheric music",
 };
 
 export default function RootLayout({ children }) {
