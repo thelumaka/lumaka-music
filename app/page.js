@@ -643,7 +643,7 @@ hoverTimeout.current = setTimeout(() => {
     className="mt-3 text-sm md:text-base font-light tracking-wide"
   >
     <span style={{ opacity: 0.5 }}>
-      I compose soundtracks. Open for two projects fall '26.
+      I compose soundtracks. Open for two projects winter '26.
     </span>
 
     <a
@@ -978,7 +978,7 @@ hoverTimeout.current = setTimeout(() => {
             </a>
 
             <a
-              href='https://mastodon.gamedev.place/home'
+              href='https://mastodon.gamedev.place/@lumaka'
               className='hover:underline'
             >
               Mastodon
